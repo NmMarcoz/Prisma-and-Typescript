@@ -1,69 +1,85 @@
-import { Request, Response } from 'express'
-import { prismaClient } from '..';
-import { hashSync, compareSync } from 'bcrypt'
-import * as jwt from 'jsonwebtoken'
-import { JWT_SECRET } from '../secrets';
-export const login = async (req: Request, res: Response) => {
+import { NextFunction, Request, Response } from "express";
+import { prismaClient } from "..";
+import { hashSync, compareSync } from "bcrypt";
+import * as jwt from "jsonwebtoken";
+import { JWT_SECRET } from "../secrets";
+import { BadRequestsException } from "../exceptions/bad-request";
+import { ErrorCodes } from "../exceptions/root";
+export const login = async (req: Request,res: Response,next: NextFunction) => {
     try {
-        const { email, password } = req.body
+        const { email, password } = req.body;
+        // Validações -----------------------------//
         if (!email || !password) {
-            throw Error("All the camps are obrigatory")
+            throw new BadRequestsException(
+                "All camps are obrigatory",
+                ErrorCodes.ALL_CAMPS_OBRIGATORY
+            );
         }
-        let user = await prismaClient.user.findFirst({where:{ email: email}})
-        if(!user){
-            throw Error("password or email invalid");
+        let user = await prismaClient.user.findFirst({ where: { email: email } });
+        if (!user) {
+            throw new BadRequestsException(
+                "password or email invalid",
+                ErrorCodes.INCORRECT_PASSWORD
+            );
         }
-        if(!compareSync(password, user.password)){
-            throw Error("password or email invalid");
+        // Validação do Hash do password -----------//
+        if (!compareSync(password, user.password)) {
+            throw new BadRequestsException(
+                "password or email invalid",
+                ErrorCodes.INCORRECT_PASSWORD
+            );
         }
-
-        const token = jwt.sign({
-            userId: user.id
-        }, JWT_SECRET)
+        // Validações concluídas -----------------//
+        const token = jwt.sign(
+            {
+                userId: user.id,
+            },
+            JWT_SECRET
+        );
 
         return res.status(200).send({
             user: [user.name, user.email],
-            token: token
-        })
-
+            token: token,
+        });
     } catch (error: any) {
-        return res.status(500).send({
-            error: error.message
-        })
-
+        return res.status(error.statusCode).send({
+            error: error.message,
+            errorCode: error.errorCode,
+        });
     }
-
-
-}
-
-export const signUp = async (req: Request, res: Response) => {
+};
+export const signUp = async (req: Request,res: Response,next: NextFunction) => {
     try {
         const { email, password, name } = req.body;
         if (!email || !password || !name) {
-            throw Error("All camps are obrigatory")
-
+            throw new BadRequestsException(
+                "All camps are obrigatory",
+                ErrorCodes.ALL_CAMPS_OBRIGATORY
+            );
         }
-        let user = await prismaClient.user.findFirst({ where: { email: email } })
+        let user = await prismaClient.user.findFirst({ where: { email: email } });
         if (user) {
-            throw Error('User already exists')
+            throw new BadRequestsException(
+                "User already exists",
+                ErrorCodes.USER_ALREADY_EXISTS
+            );
         }
         user = await prismaClient.user.create({
             data: {
                 name: name,
                 email: email,
-                password: hashSync(password, 10)
-            }
-        })
-        return res.status(200).send(res.json({
-            message: "User created",
-            userEmail: email
-        }))
-
+                password: hashSync(password, 10),
+            },
+        });
+        return res.status(200).send(
+            res.json({
+                message: "User created",
+                userEmail: email,
+            })
+        );
     } catch (error: any) {
-        return res.status(400).send({
-            message: error.message
-        })
+        return res.status(error.statusCode).send({
+            message: error.message,
+        });
     }
-
-
-}
+};
