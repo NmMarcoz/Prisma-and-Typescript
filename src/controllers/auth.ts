@@ -5,7 +5,7 @@ import * as jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../secrets";
 import { BadRequestsException } from "../exceptions/bad-request";
 import { ErrorCodes } from "../exceptions/root";
-export const login = async (req: Request,res: Response,next: NextFunction) => {
+export const login = async (req: Request,res: Response) => {
     try {
         const { email, password } = req.body;
         // Validações -----------------------------//
@@ -48,36 +48,46 @@ export const login = async (req: Request,res: Response,next: NextFunction) => {
         });
     }
 };
-export const signUp = async (req: Request,res: Response,next: NextFunction) => {
+export const signUp = async (req: Request,res: Response) => {
     try {
         const { email, password, name } = req.body;
         if (!email || !password || !name) {
+            console.log("all camps obrigatory")
             throw new BadRequestsException(
                 "All camps are obrigatory",
                 ErrorCodes.ALL_CAMPS_OBRIGATORY
             );
         }
-        let user = await prismaClient.user.findFirst({ where: { email: email } });
-        if (user) {
+        if(password.length < 6 || password.length > 14){
+            console.log("invalid password")
+            throw new BadRequestsException(
+                "Password must be 6 to 14 letters",
+                ErrorCodes.INVALID_PASSWORD
+            )
+        }
+        let userExists = await prismaClient.user.findFirst({ where: { email: email } });
+        if (userExists) {
+            console.log("user exists")
             throw new BadRequestsException(
                 "User already exists",
                 ErrorCodes.USER_ALREADY_EXISTS
             );
         }
-        user = await prismaClient.user.create({
+        let user = await prismaClient.user.create({
             data: {
                 name: name,
                 email: email,
                 password: hashSync(password, 10),
             },
         });
-        return res.status(200).send(
-            res.json({
+        console.log("sent")
+        return res.status(200).send({    
                 message: "User created",
-                userEmail: email,
-            })
-        );
+                userEmail: user.email,
+        })    
+        ;
     } catch (error: any) {
+        console.log("catch")
         return res.status(error.statusCode).send({
             message: error.message,
         });

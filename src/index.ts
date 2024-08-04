@@ -10,7 +10,7 @@ export const prismaClient = new PrismaClient({
 })
 
 app.use(express.json())
-app.use(errorMiddleware)
+//app.use(errorMiddleware)
 app.use('/', rootRouter);
 
 
